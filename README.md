@@ -1,16 +1,21 @@
 # Grok-Go: Go Client Library for X.AI API
 
-This is a Go client library for the X.AI API, allowing you to easily integrate Grok AI models into your Go applications.
+[![Go Reference](https://pkg.go.dev/badge/github.com/SimonMorphy/grok-go.svg)](https://pkg.go.dev/github.com/SimonMorphy/grok-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/SimonMorphy/grok-go)](https://goreportcard.com/report/github.com/SimonMorphy/grok-go)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+*Read this in [中文](README_CN.md)*
+
+A lightweight, type-safe Go client library for the X.AI API. This library enables seamless integration with X.AI's Grok models in Go applications.
 
 ## Features
 
-- Complete API coverage for X.AI endpoints
-- Support for chat completions with the Grok model
-- Streaming responses support
-- Function calling and tool use capabilities
-- Image generation support
-- Type-safe request and response handling
-- Comprehensive error handling
+- **Complete API Coverage**: Access all X.AI API endpoints
+- **Strong Typing**: First-class Go types for all requests and responses
+- **Streaming Support**: Handle streaming responses efficiently
+- **Function Calling**: Utilize function calling and tool capabilities
+- **Image Generation**: Generate images with the Grok model
+- **Error Handling**: Comprehensive error handling with detailed error messages
 
 ## Installation
 
@@ -18,23 +23,25 @@ This is a Go client library for the X.AI API, allowing you to easily integrate G
 go get github.com/SimonMorphy/grok-go
 ```
 
-## Authentication
+Requires Go 1.18 or later.
 
-To use the X.AI API, you need an API key. You can set it as an environment variable:
+## Quick Start
+
+### Authentication
+
+Set your API key as an environment variable (recommended):
 
 ```bash
 export GROK_API_KEY="your-api-key-here"
 ```
 
-Or provide it directly in your code (not recommended for production):
+Or provide it directly in code:
 
 ```go
-client, err := grok.NewClient("your-api-key-here")
+client, err := grok.NewClient("your-api-key-here") // Not recommended for production
 ```
 
-## Quick Start
-
-### Chat Completion Example
+### Basic Chat Example
 
 ```go
 package main
@@ -88,36 +95,142 @@ func main() {
 }
 ```
 
-## Documentation
+## Advanced Usage
 
-For detailed documentation and more examples, check out the following:
+### Function Calling
 
-- [API Documentation](docs/API.md)
-- [Example Code](example/)
-- [Chat Completion Guide](docs/chat.md)
-- [Streaming Guide](docs/streaming.md)
-- [Tool Calling Guide](docs/tools.md)
-- [Image Generation Guide](docs/images.md)
+```go
+// Define a calculator tool
+calculatorTool := grok.Tool{
+    Type: "function",
+    Function: grok.Function{
+        Name:        "calculate",
+        Description: "Perform mathematical calculations",
+        Parameters: &grok.FunctionParameters{
+            Type: "object",
+            Properties: map[string]interface{}{
+                "operation": map[string]interface{}{
+                    "type":        "string",
+                    "enum":        []string{"add", "subtract", "multiply", "divide"},
+                    "description": "The mathematical operation to perform",
+                },
+                "x": map[string]interface{}{
+                    "type":        "number",
+                    "description": "The first operand",
+                },
+                "y": map[string]interface{}{
+                    "type":        "number",
+                    "description": "The second operand",
+                },
+            },
+            Required: []string{"operation", "x", "y"},
+        },
+    },
+}
+
+// Create a request using the tool
+request := &grok.ChatCompletionRequest{
+    Model: "grok-3",
+    Messages: []grok.ChatCompletionMessage{
+        {
+            Role:    "user",
+            Content: "Calculate 25 times 16",
+        },
+    },
+    Tools:      []grok.Tool{calculatorTool},
+    ToolChoice: "auto",
+}
+```
+
+### Streaming Responses
+
+```go
+request.Stream = true
+stream, err := grok.CreateChatCompletionStream(ctx, client, request)
+if err != nil {
+    log.Fatalf("Failed to create stream: %v", err)
+}
+defer stream.Close()
+
+// Process the stream
+for {
+    response, err := stream.Recv()
+    if err == io.EOF {
+        break
+    }
+    if err != nil {
+        log.Printf("Stream error: %v", err)
+        break
+    }
+    
+    // Handle chunk
+    if len(response.Choices) > 0 {
+        chunk := response.Choices[0].Delta.Content
+        if chunk != "" {
+            fmt.Print(chunk)
+        }
+    }
+}
+```
+
+### Image Generation
+
+```go
+imageClient, err := grok.CreateImageGenerationClient(apiKey)
+if err != nil {
+    log.Fatalf("Failed to create client: %v", err)
+}
+
+request := &grok.ImageGenerationRequest{
+    Model:  "grok-3-image",
+    Prompt: "A futuristic city with flying cars and tall skyscrapers",
+    Size:   "1024x1024",
+    N:      1,
+}
+
+response, err := grok.CreateImage(ctx, imageClient, request)
+if err != nil {
+    log.Fatalf("Image generation failed: %v", err)
+}
+
+// Process the image URL or Base64 data
+for i, imageData := range response.Data {
+    if imageData.URL != "" {
+        fmt.Printf("Image %d URL: %s\n", i+1, imageData.URL)
+        // Download the image...
+    } else if imageData.B64JSON != "" {
+        fmt.Printf("Image %d received as Base64 data\n", i+1)
+        // Save the Base64 image...
+    }
+}
+```
 
 ## Examples
 
-The `example` directory contains complete, runnable examples demonstrating various API features:
+For complete, runnable examples, check the [`example`](example/) directory:
 
-- Basic chat completion: [example/chat.go](example/chat.go)
-- Streaming responses: [example/streaming.go](example/streaming.go)
-- Function calling: [example/tools.go](example/tools.go)
-- Image generation: [example/image.go](example/image.go)
+- [Basic Chat Completion](example/chat.go)
+- [Streaming Responses](example/streaming.go)
+- [Function Calling](example/tools.go)
+- [Image Generation](example/image.go)
+
+## Documentation
+
+- [Package Documentation](https://pkg.go.dev/github.com/SimonMorphy/grok-go)
+- [API Reference](docs/API.md)
+- [Image Generation Guide](docs/images.md)
+- [X.AI API Reference](https://platform.x.ai/docs/api-reference)
 
 ## Testing
 
-Run the tests with:
+Run all tests (requires API key for integration tests):
 
 ```bash
-export GROK_API_KEY="your-api-key-here"  # Optional for integration tests
+export GROK_API_KEY="your-api-key-here"
 go test ./...
 ```
 
-For unit tests only (which don't require an API key):
+Run unit tests only (no API key required):
 
 ```bash
 go test ./... -short
@@ -125,8 +238,14 @@ go test ./... -short
 
 ## License
 
-[MIT License](LICENSE)
+This project is licensed under the [MIT License](LICENSE).
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. 
+Contributions are welcome! Feel free to:
+
+- Report bugs
+- Request features
+- Submit pull requests
+
+Please ensure your code passes all tests and follows Go best practices. 
